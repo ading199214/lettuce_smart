@@ -1,0 +1,201 @@
+<!-- templates/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Plant Growth Stage Predictor</title>
+    <style>
+        /* Styles for the page */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center; /* Center the content */
+            background-color: #f8f9fa; /* Light gray background */
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #444;
+        }
+        p {
+            font-size: 18px;
+        }
+        #uploaded-image, #prediction-result img {
+            max-width: 30%;
+            height: auto;
+            margin-top: 20px;
+        }
+        #prediction-result h2 {
+            margin-top: 20px;
+        }
+
+        /* Add the zoom-out animation */
+        @keyframes zoomOut {
+            from {
+                transform: scale(1.5);
+            }
+            to {
+                transform: scale(1);
+            }
+        }
+
+        /* Apply the animation to the stage image */
+        #stage-image.zoom-out {
+            animation: zoomOut 0.5s ease-out forwards;
+        }
+
+        /* Hide the default file input */
+        #file-input {
+            display: none;
+        }
+
+        /* Style the custom file upload button */
+        .custom-file-upload {
+            background-color: #007bff; /* Blue background */
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.3s ease;
+            display: inline-block;
+        }
+
+        /* Hover effect for the custom file upload button */
+        .custom-file-upload:hover {
+            background-color: #0056b3;
+        }
+
+        /* Style the predict button */
+        #upload-form button {
+            background-color: #28a745; /* Green background */
+            color: white; /* White text */
+            padding: 12px 24px; /* Padding */
+            border: none; /* Remove border */
+            border-radius: 50px; /* Make the button round */
+            font-size: 16px; /* Increase font size */
+            cursor: pointer; /* Pointer cursor on hover */
+            margin-top: 10px; /* Margin above the button */
+            transition: background-color 0.3s ease; /* Smooth transition on hover */
+            display: inline-block;
+        }
+
+        /* Change background color on hover for the predict button */
+        #upload-form button:hover {
+            background-color: #218838; /* Darker green on hover */
+        }
+
+        /* Style the confidence text to be attention-grabbing */
+        .confidence-text {
+            font-size: 24px; /* Increase font size */
+            color: #e83e8c; /* Pink color */
+            font-weight: bold; /* Bold text */
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Plant Growth Stage Predictor</h1>
+    <form id="upload-form">
+        <label for="file-input" class="custom-file-upload">Choose Image</label>
+        <input type="file" id="file-input" accept="image/*" required />
+        <button type="submit">Predict</button>
+    </form>
+    <div id="image-preview"></div>
+    <div id="prediction-result"></div>
+
+    <!-- JavaScript code -->
+    <script>
+        const form = document.getElementById('upload-form');
+        const fileInput = document.getElementById('file-input');
+        const imagePreview = document.getElementById('image-preview');
+        const predictionResult = document.getElementById('prediction-result');
+
+        // Display the uploaded image preview
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                // Ensure the file is an image
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select a valid image file.');
+                    fileInput.value = ''; // Reset the input
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.innerHTML = `
+                        <h2>Uploaded Image:</h2>
+                        <img src="${e.target.result}" alt="Uploaded Image" id="uploaded-image" />
+                    `;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select an image file.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Show loading indicator
+            predictionResult.innerHTML = `<p>Processing...</p>`;
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error('Prediction failed.');
+                }
+
+                const data = await response.json();
+
+                // Map predicted class to image filename
+                const stageImages = {
+                    'stage1': '/static/images/stage1.png',
+                    'stage2': '/static/images/stage2.png',
+                    'stage3': '/static/images/stage3.png',
+                    'undefined': '/static/images/undefined.png',
+                    'Unknown': '/static/images/undefined.png'
+                };
+
+                const imageUrl = stageImages[data.predicted_class] || '/static/images/undefined.png';
+
+
+                // Play the sound effect for any stage
+                const soundUrl = '/static/sounds/magical-twinkle-242245.mp3';
+                const audio = new Audio(soundUrl);
+                audio.play(); 
+                // Display the corresponding image, prediction, and confidence score
+                predictionResult.innerHTML = `
+                    <h2>Predicted Growth Stage: ${data.predicted_class}</h2>
+                    <p class="confidence-text">Confidence: ${(data.confidence * 100).toFixed(2)}%</p>
+                    <img src="${imageUrl}" alt="${data.predicted_class}" id="stage-image" />
+                `;
+
+                // Add the zoom-out effect to the stage image
+                const stageImage = document.getElementById('stage-image');
+                stageImage.classList.add('zoom-out');
+
+
+            } catch (error) {
+                predictionResult.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
