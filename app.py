@@ -2,6 +2,7 @@
 # uvicorn app:app --reload
 
 from fastapi import FastAPI, UploadFile, File, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -12,6 +13,18 @@ from PIL import Image
 
 app = FastAPI()
 
+# Specify the origins that are allowed to make cross-origin requests
+origins = [
+    "http://localhost:8080", 
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows requests from specified origins
+    allow_credentials=True,
+    allow_methods=["*"],    # Allows all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],    # Allows all headers
+)
 # Mount the static files directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
