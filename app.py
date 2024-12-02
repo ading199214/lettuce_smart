@@ -3,13 +3,17 @@
 
 from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse,StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from tensorflow.keras.models import load_model
 import numpy as np
 import io
 from PIL import Image
+from openai import OpenAI
+import pandas as pd
+import json
+import requests
 
 app = FastAPI()
 
@@ -77,3 +81,33 @@ async def predict(file: UploadFile = File(...)):
         return {"predicted_class": predicted_class, "confidence": confidence}
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@app.get("/insights")
+async def insights(request: Request):
+    #read history data and manipulate
+    df = pd.read_csv('./hyd_data.csv',skiprows=8)
+    df_cleaned = df.dropna()
+    df_new = df_cleaned.iloc[::200]
+    data_json = df_new.to_json(orient='records', lines=True)
+    client = OpenAI(api_key="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")
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": f"use below data to summarize the growth process, water, electricity, nutrient solution, etc. How long did it take to complete germination, growth, and maturity. Possible improvements.Based on the above data, given the advertisement, how well the dish absorbs light, moisture, nutrients, and how well the lettuce is. keep it short in 300 words:{data_json}"
+            }
+        ],
+        stream=True,
+        max_tokens=300
+    )
+    def generate():
+        for chunk in response:
+            # `chunk` will contain the response in small pieces
+            if chunk.choices[0].delta.content is not None:
+                yield chunk.choices[0].delta.content
+    return StreamingResponse(generate(), media_type="text/plain")
+        
+ 
+    
