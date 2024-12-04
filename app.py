@@ -89,7 +89,7 @@ async def insights(request: Request):
     df_cleaned = df.dropna()
     df_new = df_cleaned.iloc[::200]
     data_json = df_new.to_json(orient='records', lines=True)
-    client = OpenAI(api_key="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")
+    client = OpenAI(api_key="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")
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
